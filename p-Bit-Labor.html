@@ -1,0 +1,520 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>p-Bit-Labor</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: Messplatz-Seite. Drei Felder untereinander (ein Bit, Netzwerk, Kontrolle),
+   links Regler und Messwerte, rechts Oszilloskop-artige Zeichnungen. */
+:root {
+  --bg: #eceff2;
+  --panel: #f8f9fb;
+  --fg: #13202b;
+  --mute: #55646f;
+  --line: #cdd5dc;
+  --grid: #e1e6ea;
+  --accent: #0a6c87;
+  --hot: #c2410c;
+  --on-accent: #ffffff;
+  --font-body: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e171e; --panel: #14212a; --fg: #e4ebf0; --mute: #8fa1ae;
+    --line: #2a3b47; --grid: #1d2d38; --accent: #4cc2e2; --hot: #ff9b66; --on-accent: #0b151c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e171e; --panel: #14212a; --fg: #e4ebf0; --mute: #8fa1ae;
+  --line: #2a3b47; --grid: #1d2d38; --accent: #4cc2e2; --hot: #ff9b66; --on-accent: #0b151c;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 56px; display: flex; flex-direction: column; gap: 24px; }
+h1 { margin: 0; font-size: clamp(1.7rem, 4.5vw, 2.5rem); line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; }
+h2 { margin: 0; font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+p { margin: 0; }
+.lead { max-width: 65ch; color: var(--mute); margin-top: 10px; }
+.tag { font-family: var(--font-mono); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+.head { display: flex; flex-direction: column; gap: 6px; }
+.head p { max-width: 70ch; color: var(--mute); }
+.grid { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 780px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.ctl { display: flex; flex-direction: column; gap: 4px; }
+.ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: .84rem; color: var(--mute); }
+.ctl output { font-family: var(--font-mono); color: var(--fg); font-variant-numeric: tabular-nums; }
+input[type=range] { width: 100%; accent-color: var(--accent); margin: 2px 0; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { font: inherit; font-size: .84rem; color: var(--fg); background: transparent; border: 1px solid var(--line); border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+.btn:hover { background: var(--grid); }
+.btn:focus-visible, input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.pri { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.btn.pri:hover { filter: brightness(1.08); }
+.btn:disabled { opacity: .5; cursor: default; }
+dl.read { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; font-size: .84rem; }
+dl.read dt { color: var(--mute); }
+dl.read dd { margin: 0; font-family: var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
+.formula { font-family: var(--font-mono); font-size: .82rem; padding: 8px 10px; border: 1px dashed var(--line); border-radius: 4px; overflow-x: auto; }
+.pill { display: inline-block; font-family: var(--font-mono); font-size: .74rem; padding: 2px 9px; border-radius: 99px; border: 1px solid var(--line); color: var(--mute); }
+.pill[data-ok="1"] { border-color: var(--accent); color: var(--accent); }
+.plots { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.plot { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cap { font-size: .78rem; color: var(--mute); display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: space-between; }
+canvas { display: block; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; }
+canvas.clickable { cursor: pointer; touch-action: manipulation; }
+.sw { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; }
+.note { font-size: .8rem; color: var(--mute); max-width: 70ch; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 780px) { .two { grid-template-columns: minmax(0, 1fr); } }
+.two h3 { margin: 0 0 6px; font-size: .95rem; }
+.two ul { margin: 0; padding-left: 18px; color: var(--mute); display: flex; flex-direction: column; gap: 4px; }
+</style>
+
+<main class="wrap">
+  <header>
+    <span class="tag">Rauschen als Rechenressource</span>
+    <h1>p-Bit-Labor</h1>
+    <p class="lead">Ein p-Bit ist ein Komparator, der Eingang plus Rauschen mit einer Schwelle vergleicht. Das Bit flackert zufällig, der Eingang bestimmt, wie oft es 1 zeigt. Unten verschaltest du sechs davon zu einem kleinen Optimierer. Alle Regler wirken sofort.</p>
+  </header>
+
+  <section class="panel" aria-labelledby="hA">
+    <div class="head">
+      <span class="tag">A · Ein p-Bit</span>
+      <h2 id="hA">Schwelle, Eingang und Rauschen</h2>
+      <p>Oben siehst du das analoge Signal (Eingang plus Rauschen) und darunter die entstehenden Bits. Je kleiner das Rauschen, desto härter wird die Kennlinie, bei null ist es ein gewöhnlicher Komparator.</p>
+    </div>
+    <div class="grid">
+      <div class="col">
+        <div class="ctl"><label for="aI">Eingang I <output id="aIo"></output></label><input id="aI" type="range" min="-1" max="1" step="0.01" value="0.15"></div>
+        <div class="ctl"><label for="aT">Schwelle θ <output id="aTo"></output></label><input id="aT" type="range" min="-1" max="1" step="0.01" value="0"></div>
+        <div class="ctl"><label for="aS">Rauschen σ <output id="aSo"></output></label><input id="aS" type="range" min="0.02" max="1.5" step="0.01" value="0.35"></div>
+        <div class="ctl"><label for="aR">Abtastrate <output id="aRo"></output></label><input id="aR" type="range" min="1" max="600" step="1" value="80"></div>
+        <div class="btns">
+          <button class="btn" id="aPause" type="button">Pause</button>
+          <button class="btn" id="aReset" type="button">Zähler zurücksetzen</button>
+        </div>
+        <div class="formula">P(1) = Φ( (I − θ) / σ )</div>
+        <dl class="read">
+          <dt>P(1) berechnet</dt><dd id="aTheo">–</dd>
+          <dt>P(1) gemessen</dt><dd id="aMeas">–</dd>
+          <dt>Abtastungen N</dt><dd id="aN">–</dd>
+          <dt>Abweichung</dt><dd id="aZ">–</dd>
+        </dl>
+        <div><span class="pill" id="aPill" data-ok="0">sammelt</span></div>
+        <p class="note">Im Labor entspricht das deinem Aufbau: Avalanche-Rauschen am ADC, I über den DAC eingekoppelt, die Schwelle als Vergleich in der Software.</p>
+      </div>
+      <div class="plots">
+        <div class="plot">
+          <canvas id="cA" style="height:230px" role="img" aria-label="Analoges Signal und Bitfolge des p-Bits"></canvas>
+          <div class="cap"><span><span class="sw" style="background:var(--mute)"></span>Eingang + Rauschen, gestrichelt: Schwelle θ</span><span>letzte 200 Abtastungen</span></div>
+        </div>
+        <div class="plot">
+          <canvas id="cC" style="height:220px" role="img" aria-label="Kennlinie P(1) über dem Eingang"></canvas>
+          <div class="cap"><span><span class="sw" style="background:var(--accent)"></span>Kennlinie, Kreis: berechnet, Punkt mit Balken: gemessen (±1 Standardfehler)</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="hB">
+    <div class="head">
+      <span class="tag">B · Sechs p-Bits koppeln</span>
+      <h2 id="hB">MAX-CUT durch Rauschen</h2>
+      <p>Jeder Knoten ist ein p-Bit mit Zustand + oder −. Eine Kante zählt als geschnitten, wenn ihre Enden verschieden sind. Der Eingang eines Knotens ist J mal (Nachbarn mit − minus Nachbarn mit +), das Rauschen heißt hier Temperatur T. Bei hohem T zappelt alles, bei niedrigem T bleibt das Netz in Zuständen mit vielen geschnittenen Kanten.</p>
+    </div>
+    <div class="grid">
+      <div class="col">
+        <div class="ctl"><label for="bT">Temperatur T <output id="bTo"></output></label><input id="bT" type="range" min="0.1" max="4" step="0.05" value="1"></div>
+        <div class="ctl"><label for="bJ">Kopplung J <output id="bJo"></output></label><input id="bJ" type="range" min="0.2" max="3" step="0.1" value="1"></div>
+        <div class="ctl"><label for="bR">Schritte pro Sekunde <output id="bRo"></output></label><input id="bR" type="range" min="1" max="1500" step="1" value="150"></div>
+        <div class="btns">
+          <button class="btn" id="bPause" type="button">Pause</button>
+          <button class="btn pri" id="bAnneal" type="button">Annealing starten</button>
+          <button class="btn" id="bRand" type="button">Zufallszustand</button>
+          <button class="btn" id="bEdges" type="button">Standard-Graph</button>
+        </div>
+        <dl class="read">
+          <dt>Cut jetzt</dt><dd id="bCut">–</dd>
+          <dt>Maximum (alle 64 geprüft)</dt><dd id="bMax">–</dd>
+          <dt>Mittelwert</dt><dd id="bMean">–</dd>
+          <dt>Bester gesehen</dt><dd id="bBest">–</dd>
+          <dt>Zeit im Optimum</dt><dd id="bOpt">–</dd>
+          <dt>Durchläufe (Sweeps)</dt><dd id="bSw">–</dd>
+        </dl>
+        <p class="note">Klick auf zwei Knoten schaltet die Kante dazwischen ein oder aus. Annealing senkt T in 600 Sweeps von 3 auf 0,15.</p>
+      </div>
+      <div class="plots">
+        <div class="plot">
+          <canvas id="cG" class="clickable" style="height:300px" role="img" aria-label="Graph mit sechs Knoten, farbig nach Zustand"></canvas>
+          <div class="cap"><span><span class="sw" style="background:var(--accent)"></span>Knoten + <span class="sw" style="background:var(--hot);margin-left:10px"></span>Knoten −</span><span>durchgezogen: geschnitten, gestrichelt: nicht geschnitten</span></div>
+        </div>
+        <div class="plot">
+          <canvas id="cH" style="height:130px" role="img" aria-label="Verlauf des Cut-Werts"></canvas>
+          <div class="cap"><span>Cut über die letzten 400 Schritte, gestrichelt: Maximum</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="hC">
+    <div class="head">
+      <span class="tag">C · Kontrolle</span>
+      <h2 id="hC">Stimmt das Netz mit der Theorie überein?</h2>
+      <p>Bei festem T muss jeder der 64 Zustände mit der Boltzmann-Wahrscheinlichkeit auftreten, also proportional zu exp(J · Cut / T). Hier liegt die gemessene Häufigkeit neben dem exakten Wert. Das ist die Positivkontrolle für den Sampler, sie läuft mit den Reglern aus B.</p>
+    </div>
+    <div class="plot">
+      <canvas id="cB" style="height:190px" role="img" aria-label="Gemessene und exakte Zustandsverteilung"></canvas>
+      <div class="cap"><span><span class="sw" style="background:var(--accent);opacity:.6"></span>gemessen <span class="sw" style="background:var(--hot);margin-left:10px"></span>exakt (Boltzmann)</span><span>64 Zustände, hoher Cut links</span></div>
+    </div>
+    <dl class="read" style="max-width:420px">
+      <dt>Proben im aktuellen T</dt><dd id="cN">–</dd>
+      <dt>Abstand TV (gemessen)</dt><dd id="cTV">–</dd>
+      <dt>TV bei reinem Zählrauschen</dt><dd id="cRef">–</dd>
+    </dl>
+    <div><span class="pill" id="cPill" data-ok="0">sammelt</span></div>
+    <p class="note">Bei sehr kleinem T wechselt das Netz nur selten zwischen den guten Zuständen und die Verteilung braucht lange. Die Proben sind außerdem zeitlich korreliert, deshalb liegt TV anfangs über dem Zählrauschen.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="hD">
+    <h2 id="hD">Was die Seite zeigt und was nicht</h2>
+    <div class="two">
+      <div>
+        <h3>Das kannst du hier sehen</h3>
+        <ul>
+          <li>Rauschen plus Schwelle ergibt ein Bit mit einstellbarer Wahrscheinlichkeit.</li>
+          <li>Lokale Kopplung genügt, damit ein Netz aus solchen Bits eine Boltzmann-Verteilung abtastet.</li>
+          <li>Eine Temperaturrampe (Annealing) führt das Netz in Zustände mit hohem Cut.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Das zeigt sie nicht</h3>
+        <ul>
+          <li>Ein p-Bit hat immer einen festen Wert, nur zufällig wechselnd. Es gibt keine Superposition und keine Verschränkung.</li>
+          <li>Die Zeit zum Lösen wächst bei größeren Problemen klassisch. Ein Quantenvorteil entsteht daraus nicht.</li>
+          <li>Sechs Knoten lassen sich vollständig durchprobieren. Der Nutzen dieser Maschinen beginnt erst bei Problemen, die man nicht mehr aufzählen kann.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function css() {
+    var c = getComputedStyle(document.documentElement);
+    var g = function (n) { return c.getPropertyValue(n).trim(); };
+    return { bg: g('--panel'), fg: g('--fg'), mute: g('--mute'), line: g('--line'), grid: g('--grid'), acc: g('--accent'), hot: g('--hot'), on: g('--on-accent') };
+  }
+  function fit(cv) {
+    var d = Math.min(window.devicePixelRatio || 1, 2);
+    var w = cv.clientWidth, h = cv.clientHeight;
+    if (cv.width !== Math.round(w * d) || cv.height !== Math.round(h * d)) {
+      cv.width = Math.round(w * d); cv.height = Math.round(h * d);
+    }
+    var x = cv.getContext('2d');
+    x.setTransform(d, 0, 0, d, 0, 0);
+    return { x: x, w: w, h: h };
+  }
+  var MONO = '11px "JetBrains Mono", ui-monospace, monospace';
+  function gauss() {
+    var u = 0, v;
+    while (u === 0) u = Math.random();
+    v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+  function erf(x) {
+    var s = x < 0 ? -1 : 1; x = Math.abs(x);
+    var t = 1 / (1 + 0.3275911 * x);
+    var y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+    return s * y;
+  }
+  function Phi(x) { return 0.5 * (1 + erf(x / Math.SQRT2)); }
+  function f2(v) { return v.toFixed(2); }
+
+  /* ---------- A: ein p-Bit ---------- */
+  var A = { I: 0.15, th: 0, sig: 0.35, rate: 80, run: !reduce, acc: 0, n1: 0, N: 0, an: [], bit: [] };
+  var CAP = 200;
+  function sample() {
+    var v = A.I + A.sig * gauss();
+    var b = v > A.th ? 1 : 0;
+    A.an.push(v); A.bit.push(b);
+    if (A.an.length > CAP) { A.an.shift(); A.bit.shift(); }
+    A.N++; A.n1 += b;
+  }
+  function resetA() { A.n1 = 0; A.N = 0; }
+  function bindA(id, key, out, fmt) {
+    var el = $(id);
+    function upd() { A[key] = parseFloat(el.value); $(out).textContent = fmt(A[key]); }
+    el.addEventListener('input', function () { upd(); if (key !== 'rate') resetA(); });
+    upd();
+  }
+  bindA('aI', 'I', 'aIo', f2);
+  bindA('aT', 'th', 'aTo', f2);
+  bindA('aS', 'sig', 'aSo', f2);
+  bindA('aR', 'rate', 'aRo', function (v) { return v + ' /s'; });
+  $('aPause').addEventListener('click', function () { A.run = !A.run; this.textContent = A.run ? 'Pause' : 'Weiter'; });
+  $('aReset').addEventListener('click', resetA);
+  if (reduce) $('aPause').textContent = 'Weiter';
+
+  function drawTrace() {
+    var r = fit($('cA')), x = r.x, w = r.w, h = r.h, C = css();
+    x.clearRect(0, 0, w, h);
+    var top = 10, ah = h - 46, lo = -3, hi = 3;
+    function Y(v) { v = Math.max(lo, Math.min(hi, v)); return top + (hi - v) / (hi - lo) * (ah - top); }
+    x.font = MONO; x.textBaseline = 'middle';
+    x.strokeStyle = C.grid; x.lineWidth = 1;
+    [-2, -1, 0, 1, 2].forEach(function (g) { x.beginPath(); x.moveTo(0, Y(g)); x.lineTo(w, Y(g)); x.stroke(); });
+    x.fillStyle = C.mute; x.textAlign = 'left';
+    x.fillText('Signal', 6, top + 4);
+    var n = A.an.length, dx = w / CAP, i;
+    x.strokeStyle = C.mute; x.lineWidth = 1; x.beginPath();
+    for (i = 0; i < n; i++) { var px = w - (n - i) * dx + dx / 2; if (i === 0) x.moveTo(px, Y(A.an[i])); else x.lineTo(px, Y(A.an[i])); }
+    x.stroke();
+    for (i = 0; i < n; i++) { x.fillStyle = A.bit[i] ? C.acc : C.hot; x.beginPath(); x.arc(w - (n - i) * dx + dx / 2, Y(A.an[i]), 2.2, 0, 6.3); x.fill(); }
+    x.setLineDash([6, 4]); x.strokeStyle = C.fg; x.lineWidth = 1.5; x.beginPath(); x.moveTo(0, Y(A.th)); x.lineTo(w, Y(A.th)); x.stroke(); x.setLineDash([]);
+    x.fillStyle = C.fg; x.textAlign = 'right'; x.fillText('θ', w - 6, Y(A.th) - 8);
+    var by = h - 30, bh = 20;
+    x.fillStyle = C.mute; x.textAlign = 'left'; x.fillText('Bit', 6, by - 7);
+    for (i = 0; i < n; i++) {
+      var bx = w - (n - i) * dx;
+      if (A.bit[i]) { x.fillStyle = C.acc; x.fillRect(bx, by, Math.max(dx - 0.5, 1), bh); }
+      else { x.fillStyle = C.hot; x.globalAlpha = 0.55; x.fillRect(bx, by + bh - 4, Math.max(dx - 0.5, 1), 4); x.globalAlpha = 1; }
+    }
+  }
+  function drawCurve() {
+    var r = fit($('cC')), x = r.x, w = r.w, h = r.h, C = css();
+    x.clearRect(0, 0, w, h);
+    var l = 36, rt = 12, t = 12, b = 28, xmin = -1.5, xmax = 1.5;
+    function X(v) { return l + (v - xmin) / (xmax - xmin) * (w - l - rt); }
+    function Y(p) { return t + (1 - p) * (h - t - b); }
+    x.font = MONO; x.textBaseline = 'middle';
+    x.strokeStyle = C.grid; x.lineWidth = 1; x.fillStyle = C.mute;
+    [0, 0.5, 1].forEach(function (p) { x.beginPath(); x.moveTo(l, Y(p)); x.lineTo(w - rt, Y(p)); x.stroke(); x.textAlign = 'right'; x.fillText(p.toFixed(1), l - 6, Y(p)); });
+    [-1, 0, 1].forEach(function (v) { x.beginPath(); x.moveTo(X(v), t); x.lineTo(X(v), h - b); x.stroke(); x.textAlign = 'center'; x.fillText(v.toFixed(0), X(v), h - b + 12); });
+    x.textAlign = 'right'; x.fillText('Eingang I', w - rt, h - 6);
+    x.textAlign = 'left'; x.fillText('P(1)', 6, 6);
+    var s = Math.max(A.sig, 0.005), px;
+    x.strokeStyle = C.acc; x.lineWidth = 2; x.beginPath();
+    for (px = l; px <= w - rt; px += 2) {
+      var v = xmin + (px - l) / (w - l - rt) * (xmax - xmin);
+      var p = Phi((v - A.th) / s);
+      if (px === l) x.moveTo(px, Y(p)); else x.lineTo(px, Y(p));
+    }
+    x.stroke();
+    var pt = Phi((A.I - A.th) / s);
+    x.strokeStyle = C.fg; x.lineWidth = 1.5; x.beginPath(); x.arc(X(A.I), Y(pt), 6, 0, 6.3); x.stroke();
+    if (A.N > 0) {
+      var pm = A.n1 / A.N, se = Math.sqrt(Math.max(pm * (1 - pm), 0.25 / (A.N + 1)) / A.N);
+      x.strokeStyle = C.hot; x.lineWidth = 2; x.beginPath(); x.moveTo(X(A.I), Y(Math.min(1, pm + se))); x.lineTo(X(A.I), Y(Math.max(0, pm - se))); x.stroke();
+      x.fillStyle = C.hot; x.beginPath(); x.arc(X(A.I), Y(pm), 3.5, 0, 6.3); x.fill();
+    }
+  }
+  function readA() {
+    var s = Math.max(A.sig, 0.005), pt = Phi((A.I - A.th) / s);
+    $('aTheo').textContent = pt.toFixed(3);
+    if (A.N > 0) {
+      var pm = A.n1 / A.N, se = Math.sqrt(pt * (1 - pt) / A.N);
+      $('aMeas').textContent = pm.toFixed(3);
+      $('aN').textContent = A.N;
+      var z = se > 0 ? (pm - pt) / se : 0;
+      $('aZ').textContent = (z >= 0 ? '+' : '') + z.toFixed(1) + ' σ';
+      var ok = A.N >= 200 && Math.abs(z) < 3;
+      $('aPill').textContent = A.N < 200 ? 'sammelt' : (ok ? 'passt zur Kennlinie' : 'weicht ab');
+      $('aPill').dataset.ok = ok ? '1' : '0';
+    } else {
+      $('aMeas').textContent = '–'; $('aN').textContent = '0'; $('aZ').textContent = '–';
+      $('aPill').textContent = 'sammelt'; $('aPill').dataset.ok = '0';
+    }
+  }
+
+  /* ---------- B: Netzwerk ---------- */
+  var NN = 6;
+  var DEF = [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [0, 5], [0, 2], [2, 4], [0, 4]];
+  var E = new Set(DEF.map(function (e) { return e.join('-'); }));
+  var EA = [], cuts = new Array(64), maxCut = 0, order = [];
+  var s = [1, -1, 1, -1, 1, -1];
+  var B = { T: 1, J: 1, rate: 150, run: !reduce, acc: 0, steps: 0, anneal: false, aStep: 0, aTotal: 600 * NN };
+  var S = { sum: 0, n: 0, best: 0, opt: 0 };
+  var counts = new Array(64).fill(0), total = 0, hist = [], sel = -1;
+
+  function cutOfCode(code) {
+    var c = 0;
+    for (var k = 0; k < EA.length; k++) { if (((code >> EA[k][0]) & 1) !== ((code >> EA[k][1]) & 1)) c++; }
+    return c;
+  }
+  function rebuild() {
+    EA = Array.from(E).map(function (k) { return k.split('-').map(Number); });
+    maxCut = 0;
+    for (var c = 0; c < 64; c++) { cuts[c] = cutOfCode(c); if (cuts[c] > maxCut) maxCut = cuts[c]; }
+    order = []; for (var i = 0; i < 64; i++) order.push(i);
+    order.sort(function (a, b) { return cuts[b] - cuts[a] || a - b; });
+  }
+  function codeOf() { var c = 0; for (var i = 0; i < NN; i++) if (s[i] > 0) c |= (1 << i); return c; }
+  function resetStats() { S.sum = 0; S.n = 0; S.best = 0; S.opt = 0; counts.fill(0); total = 0; hist = []; }
+  function exactP() {
+    var p = new Array(64), z = 0, c;
+    for (c = 0; c < 64; c++) { p[c] = Math.exp(B.J * (cuts[c] - maxCut) / B.T); z += p[c]; }
+    for (c = 0; c < 64; c++) p[c] /= z;
+    return p;
+  }
+  function step() {
+    var i = Math.floor(Math.random() * NN), a = 0, b = 0, k;
+    for (k = 0; k < EA.length; k++) {
+      var e = EA[k];
+      if (e[0] === i) { if (s[e[1]] < 0) a++; else b++; }
+      else if (e[1] === i) { if (s[e[0]] < 0) a++; else b++; }
+    }
+    var inp = B.J * (a - b);
+    var p = 1 / (1 + Math.exp(-inp / B.T));
+    s[i] = Math.random() < p ? 1 : -1;
+    B.steps++;
+    var code = codeOf(), c = cuts[code];
+    S.sum += c; S.n++; if (c > S.best) S.best = c; if (c === maxCut) S.opt++;
+    hist.push(c); if (hist.length > 400) hist.shift();
+    if (!B.anneal) { counts[code]++; total++; }
+    if (B.anneal) {
+      B.aStep++;
+      var f = Math.min(1, B.aStep / B.aTotal);
+      B.T = 3 * Math.pow(0.15 / 3, f);
+      if (B.aStep >= B.aTotal) { B.anneal = false; B.T = 0.15; resetStats(); syncAnnealUI(); }
+    }
+  }
+  function syncAnnealUI() {
+    $('bT').disabled = B.anneal;
+    $('bAnneal').textContent = B.anneal ? 'Annealing abbrechen' : 'Annealing starten';
+    $('bT').value = B.T; $('bTo').textContent = B.T.toFixed(2);
+  }
+  $('bT').addEventListener('input', function () { B.T = parseFloat(this.value); $('bTo').textContent = B.T.toFixed(2); resetStats(); });
+  $('bJ').addEventListener('input', function () { B.J = parseFloat(this.value); $('bJo').textContent = B.J.toFixed(1); resetStats(); });
+  $('bR').addEventListener('input', function () { B.rate = parseFloat(this.value); $('bRo').textContent = B.rate + ' /s'; });
+  $('bPause').addEventListener('click', function () { B.run = !B.run; this.textContent = B.run ? 'Pause' : 'Weiter'; });
+  if (reduce) $('bPause').textContent = 'Weiter';
+  $('bAnneal').addEventListener('click', function () {
+    if (B.anneal) { B.anneal = false; resetStats(); }
+    else { B.anneal = true; B.aStep = 0; B.T = 3; resetStats(); }
+    syncAnnealUI();
+  });
+  $('bRand').addEventListener('click', function () { for (var i = 0; i < NN; i++) s[i] = Math.random() < 0.5 ? -1 : 1; resetStats(); });
+  $('bEdges').addEventListener('click', function () { E = new Set(DEF.map(function (e) { return e.join('-'); })); rebuild(); resetStats(); });
+  $('bTo').textContent = B.T.toFixed(2); $('bJo').textContent = B.J.toFixed(1); $('bRo').textContent = B.rate + ' /s';
+
+  function pos(i, w, h) {
+    var r = Math.min(w, h) * 0.34, a = -Math.PI / 2 + i * 2 * Math.PI / NN;
+    return [w / 2 + r * Math.cos(a), h / 2 + r * Math.sin(a)];
+  }
+  $('cG').addEventListener('pointerdown', function (ev) {
+    var rc = this.getBoundingClientRect(), mx = ev.clientX - rc.left, my = ev.clientY - rc.top, hit = -1, i;
+    for (i = 0; i < NN; i++) { var p = pos(i, rc.width, rc.height); if (Math.hypot(mx - p[0], my - p[1]) < 24) hit = i; }
+    if (hit < 0) { sel = -1; return; }
+    if (sel < 0) { sel = hit; }
+    else if (sel === hit) { sel = -1; }
+    else {
+      var k = Math.min(sel, hit) + '-' + Math.max(sel, hit);
+      if (E.has(k)) E.delete(k); else E.add(k);
+      sel = -1; rebuild(); resetStats();
+    }
+  });
+  function drawGraph() {
+    var r = fit($('cG')), x = r.x, w = r.w, h = r.h, C = css(), k, i;
+    x.clearRect(0, 0, w, h);
+    for (k = 0; k < EA.length; k++) {
+      var a = pos(EA[k][0], w, h), b = pos(EA[k][1], w, h), cut = s[EA[k][0]] !== s[EA[k][1]];
+      x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]);
+      if (cut) { x.setLineDash([]); x.strokeStyle = C.fg; x.lineWidth = 3; }
+      else { x.setLineDash([5, 5]); x.strokeStyle = C.mute; x.lineWidth = 1.2; }
+      x.stroke();
+    }
+    x.setLineDash([]);
+    x.font = '600 15px "JetBrains Mono", ui-monospace, monospace'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    for (i = 0; i < NN; i++) {
+      var p = pos(i, w, h);
+      x.beginPath(); x.arc(p[0], p[1], 17, 0, 6.3);
+      x.fillStyle = s[i] > 0 ? C.acc : C.hot; x.fill();
+      x.fillStyle = C.on; x.fillText(s[i] > 0 ? '+' : '−', p[0], p[1] + 1);
+      if (sel === i) { x.beginPath(); x.arc(p[0], p[1], 23, 0, 6.3); x.strokeStyle = C.fg; x.lineWidth = 2; x.stroke(); }
+    }
+  }
+  function drawHist() {
+    var r = fit($('cH')), x = r.x, w = r.w, h = r.h, C = css();
+    x.clearRect(0, 0, w, h);
+    var top = 8, bot = h - 8, ymax = Math.max(EA.length, 1);
+    function Y(v) { return bot - v / ymax * (bot - top); }
+    x.setLineDash([5, 4]); x.strokeStyle = C.mute; x.lineWidth = 1; x.beginPath(); x.moveTo(0, Y(maxCut)); x.lineTo(w, Y(maxCut)); x.stroke(); x.setLineDash([]);
+    var n = hist.length; if (!n) return;
+    var dx = w / 400;
+    x.strokeStyle = C.acc; x.lineWidth = 1.5; x.beginPath();
+    for (var i = 0; i < n; i++) {
+      var px = w - (n - i) * dx, py = Y(hist[i]);
+      if (i === 0) x.moveTo(px, py); else { x.lineTo(px, Y(hist[i - 1])); x.lineTo(px, py); }
+    }
+    x.stroke();
+  }
+  function drawBoltz() {
+    var r = fit($('cB')), x = r.x, w = r.w, h = r.h, C = css();
+    x.clearRect(0, 0, w, h);
+    var l = 8, rt = 8, t = 12, b = 20, bw = (w - l - rt) / 64, p = exactP(), ymax = 0, k, code;
+    for (k = 0; k < 64; k++) { ymax = Math.max(ymax, p[k], total ? counts[k] / total : 0); }
+    ymax = (ymax || 1) * 1.15;
+    function Y(v) { return h - b - v / ymax * (h - b - t); }
+    x.strokeStyle = C.grid; x.lineWidth = 1; x.beginPath(); x.moveTo(l, h - b); x.lineTo(w - rt, h - b); x.stroke();
+    for (k = 0; k < 64; k++) {
+      code = order[k];
+      var px = l + k * bw;
+      if (total) { x.globalAlpha = 0.6; x.fillStyle = C.acc; x.fillRect(px + 1, Y(counts[code] / total), Math.max(bw - 2, 1), h - b - Y(counts[code] / total)); x.globalAlpha = 1; }
+      x.strokeStyle = C.hot; x.lineWidth = 2; x.beginPath(); x.moveTo(px, Y(p[code])); x.lineTo(px + bw, Y(p[code])); x.stroke();
+    }
+    x.font = MONO; x.fillStyle = C.mute; x.textBaseline = 'middle';
+    x.textAlign = 'left'; x.fillText('Cut ' + maxCut, l, h - 7);
+    x.textAlign = 'right'; x.fillText('Cut ' + cuts[order[63]], w - rt, h - 7);
+  }
+  function readB() {
+    var c = cuts[codeOf()];
+    $('bCut').textContent = c;
+    $('bMax').textContent = maxCut;
+    $('bMean').textContent = S.n ? (S.sum / S.n).toFixed(2) : '–';
+    $('bBest').textContent = S.n ? S.best : '–';
+    $('bOpt').textContent = S.n ? Math.round(100 * S.opt / S.n) + ' %' : '–';
+    $('bSw').textContent = Math.floor(B.steps / NN);
+    if (B.anneal) { $('bT').value = B.T; $('bTo').textContent = B.T.toFixed(2); $('bAnneal').textContent = 'Annealing abbrechen (' + Math.round(100 * B.aStep / B.aTotal) + ' %)'; }
+    if (B.anneal) {
+      $('cN').textContent = '–'; $('cTV').textContent = '–'; $('cRef').textContent = '–';
+      $('cPill').textContent = 'Annealing läuft'; $('cPill').dataset.ok = '0'; return;
+    }
+    var p = exactP(), tv = 0, ref = 0, k;
+    $('cN').textContent = total;
+    if (total > 0) {
+      for (k = 0; k < 64; k++) { tv += Math.abs(counts[k] / total - p[k]); ref += Math.sqrt(2 * p[k] * (1 - p[k]) / (Math.PI * total)); }
+      tv *= 0.5; ref *= 0.5;
+      $('cTV').textContent = tv.toFixed(3); $('cRef').textContent = ref.toFixed(3);
+      var ok = total >= 1000 && tv < 2.5 * ref + 0.01;
+      $('cPill').textContent = total < 1000 ? 'sammelt' : (ok ? 'passt zur Boltzmann-Verteilung' : 'weicht noch ab');
+      $('cPill').dataset.ok = ok ? '1' : '0';
+    } else {
+      $('cTV').textContent = '–'; $('cRef').textContent = '–'; $('cPill').textContent = 'sammelt'; $('cPill').dataset.ok = '0';
+    }
+  }
+
+  /* ---------- Start und Schleife ---------- */
+  rebuild();
+  var i0;
+  for (i0 = 0; i0 < 400; i0++) sample();
+  for (i0 = 0; i0 < 4000; i0++) step();
+  function frame(now) {
+    var dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (A.run) { A.acc += A.rate * dt; while (A.acc >= 1) { sample(); A.acc -= 1; } }
+    if (B.run) { B.acc += B.rate * dt; while (B.acc >= 1) { step(); B.acc -= 1; } }
+    readA(); readB();
+    drawTrace(); drawCurve(); drawGraph(); drawHist(); drawBoltz();
+    requestAnimationFrame(frame);
+  }
+  var last = performance.now();
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
